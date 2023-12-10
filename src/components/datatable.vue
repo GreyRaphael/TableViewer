@@ -34,15 +34,13 @@ const pagination = reactive({
     }
 })
 
+async function read_file(filename: string) {
+    let result: string = await invoke("read_file", { filename: filename });
+    let table = JSON.parse(result);
+    columns.value = table["headers"];
+    data.value = table["body"];
+}
 
-async function get_data(filename: string) {
-    let result: string = await invoke("get_data", { filename: filename });
-    data.value = JSON.parse(result);
-}
-async function get_header(filename: string) {
-    let result: string = await invoke("get_header", { filename: filename });
-    columns.value = JSON.parse(result);
-}
 async function update() {
     const selected = await open({
         multiple: false,
@@ -59,8 +57,7 @@ async function update() {
         console.log('cancel');
     } else {
         // user selected a single file
-        get_header(selected);
-        get_data(selected);
+        read_file(selected);
     }
 }
 

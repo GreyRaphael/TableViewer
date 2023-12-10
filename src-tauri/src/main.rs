@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 
 use polars::prelude::*;
-use serde::{Deserialize, Serialize};
 
 fn read_parquet(filename: &str, limit: usize) -> Result<DataFrame, PolarsError> {
     let mut file = std::fs::File::open(filename)?;
@@ -12,83 +11,56 @@ fn read_parquet(filename: &str, limit: usize) -> Result<DataFrame, PolarsError> 
         .finish()
 }
 
-#[tauri::command]
-fn get_data(filename: &str) -> String {
-    let df = read_parquet(filename, 1000).unwrap();
-
-    // let mut buf = Vec::new();
-    // JsonWriter::new(&mut buf)
-    //     .with_json_format(JsonFormat::Json)
-    //     .finish(&mut df)
-    //     .unwrap();
-    // let df_json = String::from_utf8(buf).unwrap();
-    // println!("{}", df_json);
-    // df_json
-
-    let col_names = df.get_column_names();
-    let mut iters = df.iter().map(|s| s.iter()).collect::<Vec<_>>();
-    let mut json_list = Vec::new();
-    for _ in 0..df.height() {
-        let mut dict = HashMap::new();
-        for (i, iter) in iters.iter_mut().enumerate() {
-            let value = iter.next().unwrap();
-            dict.insert(col_names[i], value.to_string());
-        }
-        json_list.push(dict);
-    }
-
-    let json_string = serde_json::to_string(&json_list).unwrap();
-    json_string
-}
-
-#[derive(Serialize, Deserialize)]
-struct Header {
-    title: String,
-    key: String,
-    resizable: bool,
-    // align:String,
-    // ellipsis:bool,
-}
-
-#[tauri::command]
-fn get_header(filename: &str) -> String {
-    // let df = read_parquet("E:/test-data/Iris.parquet", 1).unwrap();
-    let df = read_parquet(filename, 1).unwrap();
+fn generate_table(df: &DataFrame) -> String {
     let col_names = df.get_column_names();
     let col_types = df.dtypes();
 
-    // let it = col_names.iter().zip(col_types.iter());
-    // let mut json_list = Vec::new();
-    // for (_, (col_name, col_type)) in it.enumerate() {
-    //     let header = std::format!("{}({})", col_name, col_type);
-    //     let item = Header {
-    //         title: header,
-    //         key: col_name.to_string(),
-    //     };
-    //     json_list.push(item);
-    // }
-
-    let json_list: Vec<Header> = col_names
-        .into_iter()
-        .zip(col_types.into_iter())
-        .map(|(k, v)| Header {
-            title: std::format!("{}({})", k, v),
-            key: k.to_string(),
-            resizable: true,
-            // align: "center".to_string(),
-            // ellipsis: true,
+    let headers = col_names
+        .iter()
+        .zip(col_types.iter())
+        .map(|(k, v)| {
+            serde_json::json!({
+                "title":std::format!("{}({})", k, v),
+                "key":k.to_string(),
+                "resizable":true,
+            })
         })
-        .collect();
+        .collect::<Vec<_>>();
 
-    let json_string = serde_json::to_string(&json_list).unwrap();
+    let mut iters = df.iter().map(|s| s.iter()).collect::<Vec<_>>();
+    let body = (0..df.height())
+        .map(|_| {
+            iters
+                .iter_mut()
+                .zip(col_names.iter())
+                .map(|(it, name)| (name.to_string(), it.next().unwrap().to_string()))
+                .collect()
+        })
+        .collect::<Vec<HashMap<_, _>>>();
 
-    // println!("{}", json_string);
-    json_string
+    let table = serde_json::json!({
+        "headers":headers,
+        "body":body,
+    });
+
+    serde_json::to_string(&table).unwrap()
+}
+
+#[tauri::command]
+fn read_file(filename: &str) -> String {
+    if filename.ends_with(".parquet") {
+        let df = read_parquet(filename, 1000).unwrap();
+        generate_table(&df)
+    } else {
+        // empty case
+        let df = DataFrame::default();
+        generate_table(&df)
+    }
 }
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_data, get_header])
+        .invoke_handler(tauri::generate_handler![read_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
