@@ -12,24 +12,24 @@ dependencies:
     specifier: ^2.35.0
     version: 2.35.0(vue@3.3.11)
   vue:
-    specifier: ^3.3.4
+    specifier: ^3.3.11
     version: 3.3.11(typescript@5.3.3)
 
 devDependencies:
   '@tauri-apps/cli':
-    specifier: ^1.5.6
+    specifier: ^1.5.7
     version: 1.5.7
   '@vitejs/plugin-vue':
-    specifier: ^4.2.3
+    specifier: ^4.5.2
     version: 4.5.2(vite@4.5.1)(vue@3.3.11)
   typescript:
-    specifier: ^5.0.2
+    specifier: ^5.3.3
     version: 5.3.3
   vite:
-    specifier: ^4.4.4
+    specifier: ^4.5.1
     version: 4.5.1
   vue-tsc:
-    specifier: ^1.8.5
+    specifier: ^1.8.25
     version: 1.8.25(typescript@5.3.3)
 
 packages:
