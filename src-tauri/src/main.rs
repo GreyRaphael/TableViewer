@@ -4,29 +4,18 @@ use std::collections::HashMap;
 
 use polars::prelude::*;
 
-fn read_parquet(filename: &str, limit: usize) -> Result<DataFrame, PolarsError> {
-    let mut file = std::fs::File::open(filename)?;
-    ParquetReader::new(&mut file)
-        .with_n_rows(Some(limit))
-        .finish()
-}
-
-fn read_csv(filename: &str, sep: u8, limit: usize) -> Result<DataFrame, PolarsError> {
-    CsvReader::from_path(filename)?
-        .with_separator(sep)
-        .with_n_rows(Some(limit))
-        .finish()
-}
-
-fn read_json(filename: &str, limit: usize) -> Result<DataFrame, PolarsError> {
-    let mut file = std::fs::File::open(filename)?;
-    Ok(JsonReader::new(&mut file).finish()?.head(Some(limit)))
-}
-
-fn query_dataframe(df: &DataFrame, sql_str: &str) -> Result<DataFrame, PolarsError> {
+fn read_parquet(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
+    let lf = LazyFrame::scan_parquet(filename, Default::default())?.with_row_count("idx", Some(1));
     let mut ctx = polars::sql::SQLContext::new();
-    ctx.register("CURRENT", df.clone().lazy());
-    ctx.execute(sql_str).unwrap().collect()
+    ctx.register("CURRENT", lf);
+    ctx.execute(sql)?.collect()
+}
+
+fn read_json(filename: &str) -> Result<DataFrame, PolarsError> {
+    let mut file = std::fs::File::open(filename)?;
+    JsonReader::new(&mut file)
+        .finish()?
+        .with_row_count("idx", Some(1))
 }
 
 fn generate_table(df: &DataFrame) -> String {
@@ -67,13 +56,10 @@ fn generate_table(df: &DataFrame) -> String {
 #[tauri::command]
 fn read_file(filename: &str) -> String {
     if filename.ends_with(".parquet") {
-        let df = read_parquet(filename, 1000).unwrap();
+        let df = read_parquet(filename, "SELECT * FROM CURRENT LIMIT 100").unwrap();
         generate_table(&df)
     } else if filename.ends_with(".json") {
-        let df = read_json(filename, 1000).unwrap();
-        generate_table(&df)
-    } else if filename.ends_with(".csv") {
-        let df = read_csv(filename, b';', 1000).unwrap();
+        let df = read_json(filename).unwrap();
         generate_table(&df)
     } else {
         // empty case
