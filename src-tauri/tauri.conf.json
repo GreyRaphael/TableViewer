@@ -42,7 +42,8 @@
         "resizable": true,
         "title": "Table Viewer",
         "width": 1600,
-        "height": 900
+        "height": 900,
+        "center": true
       }
     ]
   }
