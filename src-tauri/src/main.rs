@@ -7,24 +7,21 @@ use polars::prelude::*;
 fn read_parquet(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
     let lf = LazyFrame::scan_parquet(filename, Default::default())?.with_row_count("idx", Some(1));
     let mut ctx = polars::sql::SQLContext::new();
-    ctx.register("CURRENT", lf);
+    ctx.register("LAST", lf);
     ctx.execute(sql)?.collect()
 }
 
-fn read_json(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
-    let mut file = std::fs::File::open(filename)?;
-    let df = JsonReader::new(&mut file)
-        .finish()?
-        .with_row_count("idx", Some(1))?;
-    let lf = df.lazy();
+fn read_ipc(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
+    let lf = LazyFrame::scan_ipc(filename, Default::default())?.with_row_count("idx", Some(1));
     let mut ctx = polars::sql::SQLContext::new();
-    ctx.register("CURRENT", lf);
+    ctx.register("LAST", lf);
     ctx.execute(sql)?.collect()
 }
 
 fn generate_table(df: &DataFrame) -> String {
     let col_names = df.get_column_names();
     let col_types = df.dtypes();
+    let row_count = df.height();
 
     let headers = col_names
         .iter()
@@ -50,6 +47,7 @@ fn generate_table(df: &DataFrame) -> String {
         .collect::<Vec<HashMap<_, _>>>();
 
     let table = serde_json::json!({
+        "row_count":row_count,
         "headers":headers,
         "body":body,
     });
@@ -58,23 +56,20 @@ fn generate_table(df: &DataFrame) -> String {
 }
 
 #[tauri::command]
-fn read_file(filename: &str) -> String {
-    if filename.ends_with(".parquet") {
-        let df = read_parquet(filename, "SELECT * FROM CURRENT LIMIT 100").unwrap();
-        generate_table(&df)
-    } else if filename.ends_with(".json") {
-        let df = read_json(filename, "SELECT * FROM CURRENT LIMIT 100").unwrap();
-        generate_table(&df)
-    } else {
-        // empty case
-        let df = DataFrame::empty();
-        generate_table(&df)
-    }
+fn read_parquet_file(filename: &str, sql: &str) -> String {
+    let df = read_parquet(filename, sql).unwrap();
+    generate_table(&df)
+}
+
+#[tauri::command]
+fn read_ipc_file(filename: &str, sql: &str) -> String {
+    let df = read_ipc(filename, sql).unwrap();
+    generate_table(&df)
 }
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![read_file])
+        .invoke_handler(tauri::generate_handler![read_parquet_file, read_ipc_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
