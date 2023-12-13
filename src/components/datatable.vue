@@ -1,7 +1,7 @@
 <template>
     <div id="uppper_container">
         <div>
-            <n-dropdown trigger="hover" size="small" :options="options" @select="choose_file">
+            <n-dropdown trigger="hover" :options="options" @select="choose_file">
                 <n-button :strong="true"> Open </n-button>
             </n-dropdown>
         </div>

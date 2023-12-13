@@ -11,11 +11,15 @@ fn read_parquet(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
     ctx.execute(sql)?.collect()
 }
 
-fn read_json(filename: &str) -> Result<DataFrame, PolarsError> {
+fn read_json(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
     let mut file = std::fs::File::open(filename)?;
-    JsonReader::new(&mut file)
+    let df = JsonReader::new(&mut file)
         .finish()?
-        .with_row_count("idx", Some(1))
+        .with_row_count("idx", Some(1))?;
+    let lf = df.lazy();
+    let mut ctx = polars::sql::SQLContext::new();
+    ctx.register("CURRENT", lf);
+    ctx.execute(sql)?.collect()
 }
 
 fn generate_table(df: &DataFrame) -> String {
@@ -59,7 +63,7 @@ fn read_file(filename: &str) -> String {
         let df = read_parquet(filename, "SELECT * FROM CURRENT LIMIT 100").unwrap();
         generate_table(&df)
     } else if filename.ends_with(".json") {
-        let df = read_json(filename).unwrap();
+        let df = read_json(filename, "SELECT * FROM CURRENT LIMIT 100").unwrap();
         generate_table(&df)
     } else {
         // empty case
