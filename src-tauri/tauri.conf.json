@@ -31,7 +31,7 @@
         "fullscreen": false,
         "resizable": true,
         "title": "Table Viewer",
-        "width": 1600,
+        "width": 1800,
         "height": 900,
         "center": true
       }
