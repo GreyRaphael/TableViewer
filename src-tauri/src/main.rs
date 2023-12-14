@@ -62,6 +62,7 @@ fn generate_table(df: &DataFrame) -> String {
         .collect::<Vec<HashMap<_, _>>>();
 
     let table = serde_json::json!({
+        "col_count":col_names.len(),
         "row_count":row_count,
         "headers":headers,
         "body":body,

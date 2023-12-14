@@ -7,7 +7,7 @@
             <n-button @click="clear" :strong="true"> Close </n-button>
         </div>
         <div style="float: right; line-height: 35px; margin: 0 50px;">
-            <span>Rows Count: {{ tb_rows }}</span>
+            <span>Shape: ({{ tb_rows }}, {{ tb_cols }})</span>
         </div>
         <div id="query_container">
             <n-button @click="execute_sql" :strong="true"> Execute </n-button>
@@ -34,6 +34,7 @@ import { open } from '@tauri-apps/api/dialog';
 const sql = ref("select * from LAST offset 0 limit 100");
 const last_filename = ref("");
 // table headers & body
+const tb_cols = ref(0);
 const tb_rows = ref(0);
 const tb_headers = ref([]);
 const tb_body = ref([]);
@@ -60,6 +61,7 @@ async function read_parquet_file(filename: string, sql: string) {
     tb_headers.value = table["headers"];
     tb_body.value = table["body"];
     tb_rows.value = table["row_count"];
+    tb_cols.value = table["col_count"];
 }
 async function read_ipc_file(filename: string, sql: string) {
     let result: string = await invoke("read_ipc_file", { filename: filename, sql: sql });
@@ -67,6 +69,7 @@ async function read_ipc_file(filename: string, sql: string) {
     tb_headers.value = table["headers"];
     tb_body.value = table["body"];
     tb_rows.value = table["row_count"];
+    tb_cols.value = table["col_count"];
 }
 async function read_csv_file(filename: string, sql: string, sep: number) {
     let result: string = await invoke("read_csv_file", { filename: filename, sql: sql, sep: sep });
@@ -74,6 +77,7 @@ async function read_csv_file(filename: string, sql: string, sep: number) {
     tb_headers.value = table["headers"];
     tb_body.value = table["body"];
     tb_rows.value = table["row_count"];
+    tb_cols.value = table["col_count"];
 }
 
 async function execute_sql() {
