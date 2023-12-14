@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use std::collections::HashMap;
 
-use polars::prelude::*;
+use polars::{io::RowCount, prelude::*};
 
 fn read_parquet(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
     let lf = LazyFrame::scan_parquet(filename, Default::default())?.with_row_count("idx", Some(1));
@@ -13,6 +13,21 @@ fn read_parquet(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
 
 fn read_ipc(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
     let lf = LazyFrame::scan_ipc(filename, Default::default())?.with_row_count("idx", Some(1));
+    let mut ctx = polars::sql::SQLContext::new();
+    ctx.register("LAST", lf);
+    ctx.execute(sql)?.collect()
+}
+
+fn read_csv(filename: &str, sql: &str, sep: u8) -> Result<DataFrame, PolarsError> {
+    let lf = LazyCsvReader::new(filename)
+        .with_missing_is_null(true)
+        // .with_try_parse_dates(true)
+        .with_separator(sep)
+        .with_row_count(Some(RowCount {
+            name: "idx".to_string(),
+            offset: 1,
+        }))
+        .finish()?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
     ctx.execute(sql)?.collect()
@@ -67,9 +82,19 @@ fn read_ipc_file(filename: &str, sql: &str) -> String {
     generate_table(&df)
 }
 
+#[tauri::command]
+fn read_csv_file(filename: &str, sql: &str, sep: u8) -> String {
+    let df = read_csv(filename, sql, sep).unwrap();
+    generate_table(&df)
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![read_parquet_file, read_ipc_file])
+        .invoke_handler(tauri::generate_handler![
+            read_parquet_file,
+            read_ipc_file,
+            read_csv_file
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
