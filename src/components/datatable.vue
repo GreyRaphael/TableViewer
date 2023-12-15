@@ -11,7 +11,13 @@
         </div>
         <div id="query_container">
             <n-button @click="execute_sql" :strong="true"> Execute </n-button>
-            <n-input v-model:value="sql" type="text" clearable style="width: 1000px;" />
+            <n-tooltip placement="bottom" trigger="hover">
+                <template #trigger>
+                    <n-input v-model:value="sql" type="text" clearable style="width: 1000px;"
+                        placeholder="select * from LAST where idx>10 order by idx desc offset 0 limit 100" />
+                </template>
+                <span>Not support field with "-"</span>
+            </n-tooltip>
         </div>
     </div>
     <div id="table_container">
@@ -25,13 +31,13 @@
 </template>
 
 <script setup lang="ts">
-import { NButton, NDataTable, NInput, NDropdown, NSelect, NModal } from 'naive-ui'
+import { NButton, NDataTable, NInput, NDropdown, NSelect, NModal, NTooltip } from 'naive-ui'
 import { invoke } from "@tauri-apps/api/tauri";
 import { ref } from 'vue';
-import { open } from '@tauri-apps/api/dialog';
+import { open, message } from '@tauri-apps/api/dialog';
 
 // parameters
-const sql = ref("select * from LAST offset 0 limit 100");
+const sql = ref("");
 const last_filename = ref("");
 // table headers & body
 const tb_cols = ref(0);
@@ -54,30 +60,29 @@ const filetype_options = [
     }
 ]
 
+async function set_ui(j_str: string) {
+    let table = JSON.parse(j_str);
+    if (table.hasOwnProperty("err_msg")) {
+        message(table["err_msg"], { title: 'sql query error', type: 'error' });
+    } else {
+        tb_headers.value = table["headers"];
+        tb_body.value = table["body"];
+        tb_rows.value = table["row_count"];
+        tb_cols.value = table["col_count"];
+    }
+}
 
 async function read_parquet_file(filename: string, sql: string) {
     let result: string = await invoke("read_parquet_file", { filename: filename, sql: sql });
-    let table = JSON.parse(result);
-    tb_headers.value = table["headers"];
-    tb_body.value = table["body"];
-    tb_rows.value = table["row_count"];
-    tb_cols.value = table["col_count"];
+    set_ui(result);
 }
 async function read_ipc_file(filename: string, sql: string) {
     let result: string = await invoke("read_ipc_file", { filename: filename, sql: sql });
-    let table = JSON.parse(result);
-    tb_headers.value = table["headers"];
-    tb_body.value = table["body"];
-    tb_rows.value = table["row_count"];
-    tb_cols.value = table["col_count"];
+    set_ui(result);
 }
 async function read_csv_file(filename: string, sql: string, sep: number) {
     let result: string = await invoke("read_csv_file", { filename: filename, sql: sql, sep: sep });
-    let table = JSON.parse(result);
-    tb_headers.value = table["headers"];
-    tb_body.value = table["body"];
-    tb_rows.value = table["row_count"];
-    tb_cols.value = table["col_count"];
+    set_ui(result);
 }
 
 async function execute_sql() {
@@ -93,6 +98,7 @@ async function execute_sql() {
 }
 
 async function choose_filetype(key: string) {
+    sql.value = "select * from LAST offset 0 limit 100";
     const selected = await open({
         multiple: false,
         filters: [{

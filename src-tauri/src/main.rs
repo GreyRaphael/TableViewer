@@ -71,22 +71,35 @@ fn generate_table(df: &DataFrame) -> String {
     serde_json::to_string(&table).unwrap()
 }
 
+fn deal_error(e: PolarsError) -> String {
+    serde_json::json!({
+        "err_msg":e.to_string(),
+    })
+    .to_string()
+}
+
 #[tauri::command]
 fn read_parquet_file(filename: &str, sql: &str) -> String {
-    let df = read_parquet(filename, sql).unwrap();
-    generate_table(&df)
+    match read_parquet(filename, sql) {
+        Ok(df) => generate_table(&df),
+        Err(e) => deal_error(e),
+    }
 }
 
 #[tauri::command]
 fn read_ipc_file(filename: &str, sql: &str) -> String {
-    let df = read_ipc(filename, sql).unwrap();
-    generate_table(&df)
+    match read_ipc(filename, sql) {
+        Ok(df) => generate_table(&df),
+        Err(e) => deal_error(e),
+    }
 }
 
 #[tauri::command]
 fn read_csv_file(filename: &str, sql: &str, sep: u8) -> String {
-    let df = read_csv(filename, sql, sep).unwrap();
-    generate_table(&df)
+    match read_csv(filename, sql, sep) {
+        Ok(df) => generate_table(&df),
+        Err(e) => deal_error(e),
+    }
 }
 
 fn main() {
