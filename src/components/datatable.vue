@@ -38,8 +38,8 @@ import { open, message } from '@tauri-apps/api/dialog';
 
 // parameters
 const sql = ref("");
-const last_filename = ref("");
 const last_filenames: Ref<string[]> = ref([]);
+const last_filetype = ref("");
 // table headers & body
 const tb_cols = ref(0);
 const tb_rows = ref(0);
@@ -78,29 +78,32 @@ async function read_parquet_files(filelist: string[], sql: string) {
     let result: string = await invoke("read_parquet_files", { filenames: filenames, sql: sql });
     set_ui(result);
 }
-async function read_ipc_file(filename: string, sql: string) {
-    let result: string = await invoke("read_ipc_file", { filename: filename, sql: sql });
+async function read_ipc_files(filelist: string[], sql: string) {
+    let filenames = JSON.stringify(filelist);
+    let result: string = await invoke("read_ipc_files", { filenames: filenames, sql: sql });
     set_ui(result);
 }
-async function read_csv_file(filename: string, sql: string, sep: number) {
-    let result: string = await invoke("read_csv_file", { filename: filename, sql: sql, sep: sep });
+async function read_csv_files(filelist: string[], sql: string, sep: number) {
+    let filenames = JSON.stringify(filelist);
+    let result: string = await invoke("read_csv_files", { filenames: filenames, sql: sql, sep: sep });
     set_ui(result);
 }
 
 async function execute_sql() {
     if (sql) {
-        if (last_filenames.value[0].endsWith("parquet")) {
+        if ('parquet' == last_filetype.value) {
             read_parquet_files(last_filenames.value, sql.value);
-        } else if (last_filename.value.endsWith("arrow")) {
-            read_ipc_file(last_filename.value, sql.value);
-        } else if (last_filename.value.endsWith("csv")) {
-            read_csv_file(last_filename.value, sql.value, csv_sep.value.charCodeAt(0));
+        } else if ('arrow' == last_filetype.value) {
+            read_ipc_files(last_filenames.value, sql.value);
+        } else if ('csv' == last_filetype.value) {
+            read_csv_files(last_filenames.value, sql.value, csv_sep.value.charCodeAt(0));
         }
     }
 }
 
 async function choose_filetype(key: string) {
     sql.value = "select * from LAST offset 0 limit 100";
+    last_filetype.value = key;
     const selected = await open({
         multiple: true,
         filters: [{
@@ -113,15 +116,10 @@ async function choose_filetype(key: string) {
     if (Array.isArray(selected)) {
         // user selected multiple files
         last_filenames.value = selected;
-        read_parquet_files(last_filenames.value, sql.value);
-    } else if (selected === null) {
-        // user cancelled the selection
-        console.log('cancel');
-    } else {
-        // user selected a single file
-        last_filename.value = selected;
-        if (key === 'arrow') {
-            read_ipc_file(selected, sql.value);
+        if ('parquet' == key) {
+            read_parquet_files(last_filenames.value, sql.value);
+        } else if ('arrow' == key) {
+            read_ipc_files(last_filenames.value, sql.value);
         } else if ('csv' == key) {
             showModal.value = true;
         }
@@ -135,7 +133,7 @@ async function clear() {
 }
 
 async function config_csv() {
-    read_csv_file(last_filename.value, sql.value, csv_sep.value.charCodeAt(0));
+    read_csv_files(last_filenames.value, sql.value, csv_sep.value.charCodeAt(0));
 }
 
 // modal

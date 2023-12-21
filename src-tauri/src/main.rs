@@ -12,22 +12,23 @@ fn read_parquets(paths: Arc<[PathBuf]>, sql: &str) -> Result<DataFrame, PolarsEr
     ctx.execute(sql)?.collect()
 }
 
-fn read_ipc(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
-    let lf = LazyFrame::scan_ipc(filename, Default::default())?.with_row_count("idx", Some(1));
+fn read_ipcs(paths: Arc<[PathBuf]>, sql: &str) -> Result<DataFrame, PolarsError> {
+    let lf = LazyFrame::scan_ipc_files(paths, Default::default())?.with_row_count("idx", Some(1));
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
     ctx.execute(sql)?.collect()
 }
 
-fn read_csv(filename: &str, sql: &str, sep: u8) -> Result<DataFrame, PolarsError> {
-    let lf = LazyCsvReader::new(filename)
+fn read_csvs(paths: Arc<[PathBuf]>, sql: &str, sep: u8) -> Result<DataFrame, PolarsError> {
+    println!("{:?}", paths);
+    let lf = LazyCsvReader::new_paths(paths)
+        .with_row_count(Some(RowCount {
+            name: "".to_string(),
+            offset: 1,
+        }))
         .with_missing_is_null(true)
         // .with_try_parse_dates(true)
         .with_separator(sep)
-        .with_row_count(Some(RowCount {
-            name: "idx".to_string(),
-            offset: 1,
-        }))
         .finish()?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
@@ -91,16 +92,22 @@ fn read_parquet_files(filenames: &str, sql: &str) -> String {
 }
 
 #[tauri::command]
-fn read_ipc_file(filename: &str, sql: &str) -> String {
-    match read_ipc(filename, sql) {
+fn read_ipc_files(filenames: &str, sql: &str) -> String {
+    // filenames is json string
+    let filename_vec: Vec<String> = serde_json::from_str(filenames).unwrap();
+    let paths = filename_vec.into_iter().map(PathBuf::from).collect();
+    match read_ipcs(paths, sql) {
         Ok(df) => generate_table(&df),
         Err(e) => deal_error(e),
     }
 }
 
 #[tauri::command]
-fn read_csv_file(filename: &str, sql: &str, sep: u8) -> String {
-    match read_csv(filename, sql, sep) {
+fn read_csv_files(filenames: &str, sql: &str, sep: u8) -> String {
+    // filenames is json string
+    let filename_vec: Vec<String> = serde_json::from_str(filenames).unwrap();
+    let paths = filename_vec.into_iter().map(PathBuf::from).collect();
+    match read_csvs(paths, sql, sep) {
         Ok(df) => generate_table(&df),
         Err(e) => deal_error(e),
     }
@@ -110,8 +117,8 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             read_parquet_files,
-            read_ipc_file,
-            read_csv_file
+            read_ipc_files,
+            read_csv_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
