@@ -1,11 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use polars::{io::RowCount, prelude::*};
 
-fn read_parquet(filename: &str, sql: &str) -> Result<DataFrame, PolarsError> {
-    let lf = LazyFrame::scan_parquet(filename, Default::default())?.with_row_count("idx", Some(1));
+fn read_parquets(paths: Arc<[PathBuf]>, sql: &str) -> Result<DataFrame, PolarsError> {
+    let lf =
+        LazyFrame::scan_parquet_files(paths, Default::default())?.with_row_count("idx", Some(1));
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
     ctx.execute(sql)?.collect()
@@ -79,8 +80,11 @@ fn deal_error(e: PolarsError) -> String {
 }
 
 #[tauri::command]
-fn read_parquet_file(filename: &str, sql: &str) -> String {
-    match read_parquet(filename, sql) {
+fn read_parquet_files(filenames: &str, sql: &str) -> String {
+    // filenames is json string
+    let filename_vec: Vec<String> = serde_json::from_str(filenames).unwrap();
+    let paths = filename_vec.into_iter().map(PathBuf::from).collect();
+    match read_parquets(paths, sql) {
         Ok(df) => generate_table(&df),
         Err(e) => deal_error(e),
     }
@@ -105,7 +109,7 @@ fn read_csv_file(filename: &str, sql: &str, sep: u8) -> String {
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
-            read_parquet_file,
+            read_parquet_files,
             read_ipc_file,
             read_csv_file
         ])
