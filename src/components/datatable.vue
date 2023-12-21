@@ -39,6 +39,7 @@ import { open, message } from '@tauri-apps/api/dialog';
 // parameters
 const sql = ref("");
 const last_filename = ref("");
+const last_filenames = ref("");
 // table headers & body
 const tb_cols = ref(0);
 const tb_rows = ref(0);
@@ -72,8 +73,8 @@ async function set_ui(j_str: string) {
     }
 }
 
-async function read_parquet_file(filename: string, sql: string) {
-    let result: string = await invoke("read_parquet_file", { filename: filename, sql: sql });
+async function read_parquet_files(filenames: string, sql: string) {
+    let result: string = await invoke("read_parquet_files", { filenames: filenames, sql: sql });
     set_ui(result);
 }
 async function read_ipc_file(filename: string, sql: string) {
@@ -88,7 +89,7 @@ async function read_csv_file(filename: string, sql: string, sep: number) {
 async function execute_sql() {
     if (sql) {
         if (last_filename.value.endsWith("parquet")) {
-            read_parquet_file(last_filename.value, sql.value);
+            read_parquet_files(last_filenames.value, sql.value);
         } else if (last_filename.value.endsWith("arrow")) {
             read_ipc_file(last_filename.value, sql.value);
         } else if (last_filename.value.endsWith("csv")) {
@@ -100,23 +101,29 @@ async function execute_sql() {
 async function choose_filetype(key: string) {
     sql.value = "select * from LAST offset 0 limit 100";
     const selected = await open({
-        multiple: false,
+        multiple: true,
         filters: [{
             name: 'table file',
             extensions: [key,]
         }]
     });
+    // console.log(selected);
 
-    if (selected && !Array.isArray(selected)) {
+    if (Array.isArray(selected)) {
+        // user selected multiple files
+        last_filenames.value = JSON.stringify(selected);
+        read_parquet_files(last_filenames.value, sql.value);
+    } else if (selected === null) {
+        // user cancelled the selection
+        console.log('cancel');
+    } else {
+        // user selected a single file
         last_filename.value = selected;
-        if (key === 'parquet') {
-            read_parquet_file(selected, sql.value);
-        } else if (key === 'arrow') {
+        if (key === 'arrow') {
             read_ipc_file(selected, sql.value);
         } else if ('csv' == key) {
             showModal.value = true;
         }
-
     }
 }
 
