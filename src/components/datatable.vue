@@ -33,13 +33,13 @@
 <script setup lang="ts">
 import { NButton, NDataTable, NInput, NDropdown, NSelect, NModal, NTooltip } from 'naive-ui'
 import { invoke } from "@tauri-apps/api/tauri";
-import { ref } from 'vue';
+import { Ref, ref } from 'vue';
 import { open, message } from '@tauri-apps/api/dialog';
 
 // parameters
 const sql = ref("");
 const last_filename = ref("");
-const last_filenames = ref("");
+const last_filenames: Ref<string[]> = ref([]);
 // table headers & body
 const tb_cols = ref(0);
 const tb_rows = ref(0);
@@ -73,7 +73,8 @@ async function set_ui(j_str: string) {
     }
 }
 
-async function read_parquet_files(filenames: string, sql: string) {
+async function read_parquet_files(filelist: string[], sql: string) {
+    let filenames = JSON.stringify(filelist);
     let result: string = await invoke("read_parquet_files", { filenames: filenames, sql: sql });
     set_ui(result);
 }
@@ -88,7 +89,7 @@ async function read_csv_file(filename: string, sql: string, sep: number) {
 
 async function execute_sql() {
     if (sql) {
-        if (last_filename.value.endsWith("parquet")) {
+        if (last_filenames.value[0].endsWith("parquet")) {
             read_parquet_files(last_filenames.value, sql.value);
         } else if (last_filename.value.endsWith("arrow")) {
             read_ipc_file(last_filename.value, sql.value);
@@ -111,7 +112,7 @@ async function choose_filetype(key: string) {
 
     if (Array.isArray(selected)) {
         // user selected multiple files
-        last_filenames.value = JSON.stringify(selected);
+        last_filenames.value = selected;
         read_parquet_files(last_filenames.value, sql.value);
     } else if (selected === null) {
         // user cancelled the selection
