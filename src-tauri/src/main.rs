@@ -2,30 +2,24 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use std::{collections::HashMap, path::PathBuf};
 
-use polars::{io::RowCount, prelude::*};
+use polars::prelude::*;
 
 fn read_parquets(paths: Arc<[PathBuf]>, sql: &str) -> Result<DataFrame, PolarsError> {
-    let lf =
-        LazyFrame::scan_parquet_files(paths, Default::default())?.with_row_count("idx", Some(1));
+    let lf = LazyFrame::scan_parquet_files(paths, Default::default())?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
     ctx.execute(sql)?.collect()
 }
 
 fn read_ipcs(paths: Arc<[PathBuf]>, sql: &str) -> Result<DataFrame, PolarsError> {
-    let lf = LazyFrame::scan_ipc_files(paths, Default::default())?.with_row_count("idx", Some(1));
+    let lf = LazyFrame::scan_ipc_files(paths, Default::default())?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
     ctx.execute(sql)?.collect()
 }
 
 fn read_csvs(paths: Arc<[PathBuf]>, sql: &str, sep: u8) -> Result<DataFrame, PolarsError> {
-    println!("{:?}", paths);
     let lf = LazyCsvReader::new_paths(paths)
-        .with_row_count(Some(RowCount {
-            name: "".to_string(),
-            offset: 1,
-        }))
         .with_missing_is_null(true)
         // .with_try_parse_dates(true)
         .with_separator(sep)
@@ -36,6 +30,8 @@ fn read_csvs(paths: Arc<[PathBuf]>, sql: &str, sep: u8) -> Result<DataFrame, Pol
 }
 
 fn generate_table(df: &DataFrame) -> String {
+    // add index column
+    let df = df.with_row_count("idx", Some(1)).unwrap();
     let col_names = df.get_column_names();
     let col_types = df.dtypes();
     let row_count = df.height();
