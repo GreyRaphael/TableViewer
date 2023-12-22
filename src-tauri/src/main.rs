@@ -8,14 +8,14 @@ fn read_parquets(paths: Arc<[PathBuf]>, sql: &str) -> Result<DataFrame, PolarsEr
     let lf = LazyFrame::scan_parquet_files(paths, Default::default())?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
-    ctx.execute(sql)?.collect()
+    ctx.execute(sql)?.collect()?.with_row_count("idx", Some(1))
 }
 
 fn read_ipcs(paths: Arc<[PathBuf]>, sql: &str) -> Result<DataFrame, PolarsError> {
     let lf = LazyFrame::scan_ipc_files(paths, Default::default())?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
-    ctx.execute(sql)?.collect()
+    ctx.execute(sql)?.collect()?.with_row_count("idx", Some(1))
 }
 
 fn read_csvs(paths: Arc<[PathBuf]>, sql: &str, sep: u8) -> Result<DataFrame, PolarsError> {
@@ -26,12 +26,10 @@ fn read_csvs(paths: Arc<[PathBuf]>, sql: &str, sep: u8) -> Result<DataFrame, Pol
         .finish()?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
-    ctx.execute(sql)?.collect()
+    ctx.execute(sql)?.collect()?.with_row_count("idx", Some(1))
 }
 
 fn generate_table(df: &DataFrame) -> String {
-    // add index column
-    let df = df.with_row_count("idx", Some(1)).unwrap();
     let col_names = df.get_column_names();
     let col_types = df.dtypes();
     let row_count = df.height();
@@ -55,6 +53,7 @@ fn generate_table(df: &DataFrame) -> String {
                 .iter_mut()
                 .zip(col_names.iter())
                 .map(|(it, name)| (name.to_string(), it.next().unwrap().to_string()))
+                // .map(|(it, name)| (name.to_string(), std::format!("{:?}", it.next().unwrap())))
                 .collect()
         })
         .collect::<Vec<HashMap<_, _>>>();
