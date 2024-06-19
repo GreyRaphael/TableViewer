@@ -24,8 +24,8 @@
         <n-data-table max-height="calc(100vh - 120px)" :columns="tb_headers" :data="tb_body" size="small"
             style="font-size:smaller;font-weight: 550;" />
     </div>
-    <n-modal v-model:show="showModal" preset="dialog" negative-text="Cancel" positive-text="Ok" @positive-click="config_csv"
-        title="Choose Separator">
+    <n-modal v-model:show="showModal" preset="dialog" negative-text="Cancel" positive-text="Ok"
+        @positive-click="config_csv" title="Choose Separator">
         <n-select v-model:value="csv_sep" :options="csv_sep_combos" />
     </n-modal>
 </template>
@@ -48,15 +48,15 @@ const tb_body = ref([]);
 
 const filetype_options = [
     {
-        label: 'parquet',
+        label: 'parquet(s)',
         key: 'parquet'
     },
     {
-        label: 'arrow',
+        label: 'feather(s)',
         key: 'arrow'
     },
     {
-        label: 'csv',
+        label: 'csv(s)',
         key: 'csv'
     }
 ]
@@ -101,14 +101,27 @@ async function execute_sql() {
     }
 }
 
+interface ExtensionMapType {
+    [key: string]: string[]; // Index signature: any string key maps to an array of strings
+}
+
+const Extensions: ExtensionMapType = {
+    "parquet": ["parquet",],
+    "arrow": ["arrow", "ipc", "feather"],
+    "csv": ["csv",],
+};
+
 async function choose_filetype(key: string) {
     sql.value = "select * from LAST offset 0 limit 100";
     last_filetype.value = key;
     const selected = await open({
         multiple: true,
         filters: [{
-            name: 'table file',
-            extensions: [key,]
+            name: 'Table File(s)',
+            extensions: Extensions[key]
+        }, {
+            name: 'All File(s)',
+            extensions: ["*",]
         }]
     });
     // console.log(selected);
@@ -138,7 +151,7 @@ async function config_csv() {
 
 // modal
 const showModal = ref(false);
-const csv_sep = ref(';');
+const csv_sep = ref(',');
 const csv_sep_combos = [
     {
         label: "comma(,)",
