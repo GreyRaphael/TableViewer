@@ -8,14 +8,14 @@ fn read_parquets(paths: Arc<[PathBuf]>, sql: &str) -> Result<DataFrame, PolarsEr
     let lf = LazyFrame::scan_parquet_files(paths, Default::default())?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
-    ctx.execute(sql)?.collect()?.with_row_count("idx", Some(1))
+    ctx.execute(sql)?.collect()?.with_row_index("idx", Some(1))
 }
 
 fn read_ipcs(paths: Arc<[PathBuf]>, sql: &str) -> Result<DataFrame, PolarsError> {
     let lf = LazyFrame::scan_ipc_files(paths, Default::default())?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
-    ctx.execute(sql)?.collect()?.with_row_count("idx", Some(1))
+    ctx.execute(sql)?.collect()?.with_row_index("idx", Some(1))
 }
 
 fn read_csvs(paths: Arc<[PathBuf]>, sql: &str, sep: u8) -> Result<DataFrame, PolarsError> {
@@ -26,7 +26,7 @@ fn read_csvs(paths: Arc<[PathBuf]>, sql: &str, sep: u8) -> Result<DataFrame, Pol
         .finish()?;
     let mut ctx = polars::sql::SQLContext::new();
     ctx.register("LAST", lf);
-    ctx.execute(sql)?.collect()?.with_row_count("idx", Some(1))
+    ctx.execute(sql)?.collect()?.with_row_index("idx", Some(1))
 }
 
 fn generate_table(df: &DataFrame) -> String {
