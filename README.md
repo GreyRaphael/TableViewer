@@ -1,7 +1,8 @@
 # TableViewer
 
 A cross-platform Table Viewer (based on tauri) with `sql` query support.
-> ![Demo](img/demo.gif)
+
+![Demo](img/demo.gif)
 
 Supported file formats:
 - `*parquet` file(s)
